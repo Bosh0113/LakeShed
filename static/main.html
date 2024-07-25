@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Watershed Delineation Tool Considering Lakes and Reservoirs</title>
+    <script src="/static/js/jquery.min.js"></script>
+    <script src="/static/js/vue.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="/static/css/iview.css"/>
+    <script src="/static/js/iview.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="/static/css/leaflet.css"/>
+    <link rel="stylesheet" type="text/css" href="/static/css/leaflet.pm.css"/>
+    <link rel="stylesheet" type="text/css" href="/static/css/vuescroll.css"/>
+    <link rel="stylesheet" type="text/css" href="/static/css/leaflet.timedimension.control.min.css"/>
+    <link rel="stylesheet" href="/static/css/iclient-leaflet.min.css" />
+    <script src="/static/js/leaflet.js"></script>
+    <script src="/static/js/leaflet.pm.min.js"></script>
+    <script src="/static/js/axios.min.js"></script>
+    <script src="/static/js/vuescroll.js"></script>
+    <script src="/static/js/iso8601.min.js"></script>
+    <script src="/static/js/leaflet.timedimension.min.js"></script>
+    <script src="/static/js/turf.min.js"></script>
+    <script type="text/javascript" src="/static/js/iclient-leaflet.js"></script>
+    <style>
+        body{
+            margin: 0px
+        }
+        .systemTitle{
+            position: fixed;
+            top: 10px;
+            left: 50px;
+            z-index: 999;
+            background-color: aliceblue;
+            font-weight: bold;
+            font-style: normal;
+            padding: 5px 10px;
+            font-size: 24px;
+            /* letter-spacing: 3px; */
+        }
+        .map{
+            height: calc(100vh);
+        }
+        #controllerDiv{
+            position: fixed;
+            right: 10px;
+            bottom: 25px;
+            z-index: 999;
+            width: 290px;
+            height: 90vh;
+        }
+        .__view{
+            display: flex;
+            flex-direction: column-reverse;
+        }
+        .controllerItemDiv{
+            background-color:#ffffffd5;
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+        .basinSelecter{
+            width: 100px;
+        }
+        .divider{
+            margin: 5px 0;
+            background-color: #96c6f7;
+        }
+        .uploadGeoJSON{
+            border: dashed 0.5px;
+            margin-left: 5px;
+        }
+        .customDiv{
+            text-align: center;
+        }
+        .customBtn{
+            width:250px;
+        }
+        .showGeoJSONInfoDiv{
+            margin-bottom: 5px;
+        }
+        .geoJSONInfo{
+            margin-left: 15px;
+            width: 250px;
+        }
+        .fileBtnHoverRed:hover {
+            background-color: #ed4014;
+            color: white;
+        }
+        .removeCSVSelect{
+            margin-left: 5px;
+        }
+        #removeCSVSelect{
+            margin-left: 5px;
+        }
+        #removeGeoJSONSelect{
+            margin-left: 5px;
+        }
+        .runStatusDiv{
+            text-align: center;
+        }
+        .resetOperationBtn{
+            width:350px;
+        }
+        .customOperationBtn{
+            width:350px;
+        }
+        .removeCustomSelect{
+            margin-left: 5px;
+        }
+        .customFileInput{
+            width: 280px;
+        }
+        .customUploadBtn{
+            display: inline-block;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="vueApp">
+        <div class="systemTitle">Watershed Delineation Tool Considering Lakes and Reservoirs</div>
+        <div class="map" id="leafletMap"></div>
+        <div id="controllerDiv">
+            <vue-scroll :ops="scrollOps" id="controllerScroll">
+                <Card :bordered="false" class='controllerItemDiv'>
+                    <strong slot="title">Delineation using Custom Data</strong>
+                    <p>Upload Custom Data for Delineation:</p>
+                    <div class="customDiv">
+                        <i-button size="small" class="customBtn" type="primary" ghost @click="showCustomDataModal">
+                            <p>Upload & Setting & Download</p>
+                        </i-button>
+                    </div>
+                </Card>
+                <Card :bordered="false" class='controllerItemDiv'>
+                    <strong slot="title">Delineation using Default Data</strong>
+                    <div>
+                        <span>Upload Custom Scope:</span>
+                        <i-button size="small" type="primary" ghost class="uploadGeoJSON" @click="showUploadGeoJSONModal">
+                            <Icon type="ios-cloud-upload" size="15"></Icon>
+                            <span>Upload</span>
+                        </i-button>
+                    </div>
+                    <small>(Or Use the Geometry on the Map)</small>
+                    <Divider size="small" class="divider"></Divider>
+                    <p>Parameters Settings:</p>
+                    <div class="customDiv">
+                        <i-button size="small" class="customBtn" type="primary" ghost @click="showResetModal">
+                            <p>Setting & Download</p>
+                        </i-button>
+                        <div>
+                            <small>(Use the Default Data)</small>
+                        </div>
+                    </div>
+                </Card>
+                <Card :bordered="false" class='controllerItemDiv'>
+                    <strong slot="title">Hydrographic Layer Display</strong>
+                    <Checkbox v-model="riverCkb" @on-change="showRiverLayer">Rivers Layer</Checkbox>
+                    <Divider size="small" class="divider"></Divider>
+                    <Checkbox v-model="lakeCkb" @on-change="showLakeLayer">Lakes Layer</Checkbox>
+                    <Divider size="small" class="divider"></Divider>
+                    <Checkbox v-model="basinCkb" @on-change="showBasinsLayer">Basins Layer</Checkbox>
+                    <i-select class="basinSelecter" v-model="levelSelect" size="small" 
+                    :disabled="!basinCkb"
+                    @on-change="changeStandardBasinsLevel">
+                        <i-option v-for="item in levelLayerList" :value="item.value" :key="item.value">{{ item.label }}</i-option>
+                    </i-select>
+                </Card>
+            </vue-scroll>
+        </div>
+        <Modal v-model="uploadGeoJSONModal" title="Upload GeoJSON" width="600" draggable>
+            <div class="showGeoJSONInfoDiv">
+                <span>Selected File:</span>
+                <i-input v-model="geoJSONName" readonly class="geoJSONInfo" size="small" :border="false" placeholder="Please select geojson file..."></i-input>
+                <i-button v-if="geoJSONName!=''" size="small" 
+                class="fileBtnHoverRed" id="removeGeoJSONSelect"
+                @click="cancelGeoJSONSelect">
+                    <Icon type="md-close" size="20"></Icon>
+                </i-button>
+            </div>
+            <Upload :max-size="1024*1024" type="drag" :before-upload="gatherFile" action="-">
+                <div style="padding: 20px 0">
+                    <Icon type="ios-cloud-upload" size="50" style="color: #3399ff"></Icon>
+                    <p>
+                        Click or Drag GeoJSON File here to Upload.
+                    </p>
+                </div>
+            </Upload>
+            <div slot="footer">
+                <i-button @click="uploadGeoJSONModal=false">Cancel</i-button>
+                <i-button type="success" @click="uploadGeoJSON()">Upload</i-button>
+            </div>
+        </Modal>
+        
+        <Modal v-model="resetDataModal" title="Parameters Settings" width="450" draggable>
+            <i-form ref="resetData" :model="resetData" label-position="top" :rules="resetValidate">
+                <Form-item label="Minimum upstream contributing area for river extraction (km&sup2)">
+                    <i-input v-model="resetData.riverThreshold"></i-input>
+                </Form-item>
+                <Form-item label="Minimum lake area (km&sup2)">
+                    <i-input v-model="resetData.lakeThreshold"></i-input>
+                </Form-item>
+            </i-form>
+            <div class="runStatusDiv">
+                <i-button v-if="resetStatus=='resetSetting'" size="small" class="resetOperationBtn" type="primary" ghost @click="runResetData('resetData')">
+                    <p>Run</p>
+                </i-button>
+                <div v-else-if="resetStatus=='resetRunning'">
+                    <i-progress :percent="99.99" status="active" hide-info></i-progress>
+                    <span>Running...</span>
+                </div>
+                <i-button v-else-if="resetStatus=='reset4Download'" size="small" class="resetOperationBtn" type="success" ghost @click="downloadResetData()">
+                    <p>Download</p>
+                </i-button>
+            </div>
+            <div slot="footer">
+                <i-button size="small" @click="resetDataModal=false">Close</i-button>
+            </div>
+        </Modal>
+
+        <Modal v-model="customDataModal" title="Upload Custom Data for Delineation" width="450" draggable>
+            <i-form ref="customDataSetting" :model="customDataSetting" label-position="top" :rules="customValidate">
+                <Form-item label="DEM (format: GeoTiff)">
+                    <i-input v-model="customDataSetting.demFileName" class="customFileInput"></i-input>
+                    <Upload v-if="customDataSetting.demFileName==''" :before-upload="gatherDEM" action="-" class="customUploadBtn">
+                        <i-button icon="md-cloud-upload" type="primary" ghost>Select File</i-button>
+                    </Upload>
+                    <i-button v-else
+                    class="fileBtnHoverRed" id="removeCustomSelect"
+                    @click="cancelDEMSelect">
+                        <Icon type="md-close" size="20"></Icon>
+                    </i-button>
+                </Form-item>
+                <Form-item label="Lakes (format: ESRI Shapefile in Zip file)">
+                    <i-input v-model="customDataSetting.lakeZipName" class="customFileInput"></i-input>
+                    <Upload v-if="customDataSetting.lakeZipName==''" :before-upload="gatherLakeZip" action="-" class="customUploadBtn">
+                        <i-button icon="md-cloud-upload" type="primary" ghost>Select File</i-button>
+                    </Upload>
+                    <i-button v-else 
+                    class="fileBtnHoverRed" id="removeCustomSelect"
+                    @click="cancelLakeZipSelect">
+                        <Icon type="md-close" size="20"></Icon>
+                    </i-button>
+                </Form-item>
+                <Form-item label="Minimum upstream contributing area for river extraction">
+                    <i-input v-model="customDataSetting.riverThreshold" placeholder="Number of Pixel"></i-input>
+                </Form-item>
+            </i-form>
+            <div class="runStatusDiv">
+                <i-button v-if="customStatus=='customSetting'" size="small" class="customOperationBtn" type="primary" ghost @click="runCustomData('customDataSetting')">
+                    <p>Run</p>
+                </i-button>
+                <div v-else-if="customStatus=='customRunning'">
+                    <i-progress :percent="99.99" status="active" hide-info></i-progress>
+                    <span>Running...</span>
+                </div>
+                <i-button v-else-if="customStatus=='custom4Download'" size="small" class="customOperationBtn" type="success" ghost @click="downloadCustomData()">
+                    <p>Download</p>
+                </i-button>
+            </div>
+            <div slot="footer">
+                <i-button size="small" @click="customDataModal=false">Close</i-button>
+            </div>
+        </Modal>
+    </div>
+    
+    <!-- <script src="/static/data/demo.js"></script> -->
+    <script>
+        var vueApp = new Vue({
+            el: "#vueApp",
+            created(){
+                this.initLevelLabel();
+            },
+            mounted(){
+                this.initMap();
+                this.initController();
+                this.initLayers();
+                this.listenDraw();
+                this.showRiverLayer(this.riverCkb);
+                this.showLakeLayer(this.lakeCkb);
+                this.showBasinsLayer(this.basinCkb);
+            },
+            data(){
+                return {
+                    mapEl: null,
+                    baseLayers: null,
+                    drawingLayerGroup: null,
+                    riverLayer: null,
+                    riverCkb: false,
+                    lakeCkb: false,
+                    basinCkb:true,
+                    standardBasinCkb: true,
+                    levelSelect: 7,
+                    levelLayerList:[],
+                    s_basinLayer: null,
+                    uploadGeoJSONModal:false,
+                    toUploadGeoJSON: null,
+                    geoJSONName:"",
+                    resetDataModal:false,
+                    customDataModal:false,
+                    showDownloadGeoJSONBtn: false,
+                    toDownloadGeoJSONStr: "",
+                    resetData:{
+                        riverThreshold: 5.0,
+                        lakeThreshold: 100.0
+                    },
+                    resetValidate:{
+                        riverThreshold:[
+                            { required: true, message: 'The value cannot be empty', trigger: 'blur' }
+                        ],
+                        lakeThreshold:[
+                            { required: true, message: 'The value cannot be empty', trigger: 'blur' }
+                        ]
+                    },
+                    resetStatus: 'resetSetting',
+                    resultDataUrl: '',
+                    customDataSetting:{
+                        demFileName:'',
+                        lakeZipName:'',
+                        riverThreshold: '',
+                    },
+                    customValidate:{
+                        demFileName:[
+                            { required: true, message: 'The file is required', trigger: 'blur' }
+                        ],
+                        lakeZipName:[
+                            { required: true, message: 'The file is required', trigger: 'blur' }
+                        ],
+                        riverThreshold:[
+                            { required: true, message: 'The value cannot be empty', trigger: 'blur' }
+                        ],
+                        lakeThreshold:[
+                            { required: true, message: 'The value cannot be empty', trigger: 'blur' }
+                        ]
+                    },
+                    customStatus: 'customSetting',
+                    customDataUrl: '',
+                    scrollOps: {
+                        bar: {
+                            background: "#808695"
+                        }
+                    },
+                }
+            },
+            methods:{
+                initLevelLabel(){
+                    for(i=5;i<9;i++){
+                        item = {
+                            value: i,
+                            label: 'level ' + i
+                        }
+                        this.levelLayerList.push(item);
+                    }
+                },
+                initMap(){
+                    this.mapEl = L.map('leafletMap').setView([30.6, 119.5], 10);
+                },
+                initController(){
+                    this.drawingLayerGroup = L.layerGroup([]);
+                    this.drawingLayerGroup.addTo(this.mapEl);
+                },
+                initLayers(){
+                    // 图层控件
+                    var mapboxVectorMap = 'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiYm9zaDAxMTMiLCJhIjoiY2tsM3FicnprMTMyZTJvbzRpeXF4Y2ZoOSJ9.JFmrSXBF0bTcqyXXnWjLYQ';
+                    var vectorMap = L.tileLayer(mapboxVectorMap, { maxZoom: 18 });
+                    var vector = L.layerGroup([vectorMap]);
+                                        
+                    var mapboxRSMap = 'https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=pk.eyJ1IjoiYm9zaDAxMTMiLCJhIjoiY2tsM3FicnprMTMyZTJvbzRpeXF4Y2ZoOSJ9.JFmrSXBF0bTcqyXXnWjLYQ';
+                    var satelliteMap = L.tileLayer(mapboxRSMap, { maxZoom: 18 });
+                    var satellite = L.layerGroup([satelliteMap]);
+
+                    var osmVectorMap = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+                    var osmVectorMap = L.tileLayer(osmVectorMap, { maxZoom: 18 });
+                    var vectorOSM = L.layerGroup([osmVectorMap]);
+
+                    this.baseLayers = {
+                        "Mapbox Vector map": vector,
+                        "Mapbox Satellite map": satellite,
+                        "OSM Vector map": vectorOSM,
+                    };
+                    var overlayLayers = {};
+                    L.control.layers(this.baseLayers, overlayLayers).addTo(this.mapEl);
+                    this.baseLayers["Mapbox Vector map"].addTo(this.mapEl);
+                    
+                    // 底图均默认为0层级
+                    this.baseLayers["Mapbox Vector map"].setZIndex(0);
+                    this.baseLayers["Mapbox Satellite map"].setZIndex(0);
+                    this.baseLayers["OSM Vector map"].setZIndex(0);
+
+                    // 比例尺
+                    L.control
+                        .scale({
+                            position: "bottomleft"
+                        })
+                        .addTo(this.mapEl);
+
+                    // 绘图控件
+                    var options = {
+                        position: "topleft", // toolbar position, options are 'topleft', 'topright', 'bottomleft', 'bottomright'
+                        drawMarker: false, // adds button to draw markers
+                        drawPolyline: false, // adds button to draw a polyline
+                        drawRectangle: true, // adds button to draw a rectangle
+                        drawPolygon: true, // adds button to draw a polygon
+                        drawCircle: false, // adds button to draw a cricle
+                        cutPolygon: false, // adds button to cut a hole in a polygon
+                        editMode: true, // adds button to toggle edit mode for all layers
+                        dragMode: false,
+                        removalMode: true // adds a button to remove layers
+                    };
+                    this.mapEl.pm.addControls(options);
+                },
+                showRiverLayer(show){
+                    if(show){
+                        console.log('Show River Layer.');
+                        this.riverLayer = L.tileLayer.wms('http://'+document.domain+':5001/geoserver/hybas/wms',{
+                            layers: 'hybas:hyriv_lv4',
+                            format: 'image/png',
+                            transparent: true,
+                            noWarp:true
+                        }).addTo(this.mapEl);
+                    }
+                    else{
+                        // console.log('Hide River Layer.');
+                        try{
+                            this.riverLayer.remove();
+                        }catch{}
+                    }
+                },
+                showLakeLayer(show){
+                    if(show){
+                        console.log('Show Lake Layer.');
+                        this.lakeLayer = L.tileLayer.wms('http://'+document.domain+':5001/geoserver/hybas/wms',{
+                            layers: 'hybas:hylak_1km2',
+                            format: 'image/png',
+                            transparent: true,
+                            noWarp:true
+                        }).addTo(this.mapEl);
+                    }
+                    else{
+                        // console.log('Hide River Layer.');
+                        try{
+                            this.lakeLayer.remove();
+                        }catch{}
+                    }
+                },
+                showBasinsLayer(show){
+                    if(show){
+                        this.changeBainsType();
+                    }
+                    else{
+                        console.log('Hide Basins Layer.');
+                        try{
+                            this.s_basinLayer.remove();
+                        }catch{}
+                    }
+                },
+                changeBainsType(){
+                    this.changeStandardBasinsLevel();
+                },
+                changeStandardBasinsLevel(){
+                    try{
+                        this.s_basinLayer.remove();
+                    }catch{}
+                    if(this.standardBasinCkb){
+                        var level = this.levelSelect;
+                        this.s_basinLayer = L.tileLayer.wms('http://'+document.domain+':5001/geoserver/hybas/wms',{
+                            layers: 'hybas:lv' + level,
+                            format: 'image/png',
+                            transparent: true,
+                            noWarp:true
+                        }).addTo(this.mapEl);
+                        console.log('Show Standard Basin Layer in Level ' + level + '.');
+                    }
+                },
+                showUploadGeoJSONModal(){
+                    this.toUploadGeoJSON = null;
+                    this.geoJSONName = "";
+                    this.uploadGeoJSONModal = true;
+                },
+                gatherFile(file){
+                    this.toUploadGeoJSON = file;
+                    this.geoJSONName = file.name;
+                },
+                cancelGeoJSONSelect(){
+                    this.toUploadGeoJSON = null;
+                    this.geoJSONName = "";
+                },
+                uploadGeoJSON(){
+                    if(this.toUploadGeoJSON != null){
+                        this.showDownloadGeoJSONBtn = false;
+                        this.drawingLayerGroup.clearLayers();
+                        var reader = new FileReader();
+                        reader.readAsText(this.toUploadGeoJSON);
+                        reader.onload = e => {
+                            var fileString = e.target.result;
+                            this.addGeoJSONToMap(fileString, "blue");
+                            this.uploadGeoJSONModal = false;
+                        }
+                    }
+                    else{
+                        confirm("No File has be Added.");
+                    }
+                },
+                showResetModal(){
+                    if(this.drawingLayerGroup.getLayers().length){
+                        this.resetStatus="resetSetting";
+                        this.resetDataModal = true;
+                    }
+                    else{
+                        confirm('Please Give a Scope on Map.');
+                    }
+                },
+                runResetData(name){
+                    this.$refs[name].validate((valid) => {
+                        if (valid) {
+                            this.toDownloadGeoJSONStr=JSON.stringify(this.drawingLayerGroup.getLayers()[0].toGeoJSON())
+                            var area = turf.area(this.drawingLayerGroup.getLayers()[0].toGeoJSON())/1000000
+                            console.log('Area:', area, 'square kilometers');
+                            if (area <= 100000){
+                                this.$Message.success('Please wait for Results!');
+                                this.resetStatus="resetRunning";
+                                // console.log(this.resetData)
+                                
+                                var formData = new FormData();
+                                var riverThreshold_pixels = this.resetData.riverThreshold
+                                formData.append('riverThreshold', riverThreshold_pixels)
+                                formData.append('lakeThreshold', this.resetData.lakeThreshold)
+                                formData.append('extentGeojson', this.toDownloadGeoJSONStr)
+
+                                axios({
+                                    url: "/runResetData",
+                                    method: "post",
+                                    data: formData
+                                })
+                                .then(res=>{
+                                    console.log(res.data)
+                                    this.resetStatus = "reset4Download";
+                                    this.resultDataUrl=res.data;
+                                })
+                                .catch(err=>{
+                                    confirm('Run Reset Data Error!');
+                                    this.resetStatus = "reset4Download";
+                                    this.resultDataUrl="";
+                                });
+                            }
+                            else {
+                                confirm('Please select the area less than 100,000 square kilometers.');
+                            }
+                        } else {
+                            confirm('Value Can not be Empty.');
+                    }});
+                },
+                downloadResetData(){
+                    confirm('Download Reset Data. Url: ' + this.resultDataUrl);
+                    window.open(this.resultDataUrl);
+                },
+                showCustomDataModal(){
+                    this.customDataModal = true;
+                    this.customDataSetting.demFileName = "";
+                    this.customDataSetting.lakeZipName = "";
+                    this.customStatus="customSetting";
+                },
+                gatherDEM(file){
+                    this.customDEMFile = file;
+                    this.customDataSetting.demFileName = file.name;
+                },
+                cancelDEMSelect(){
+                    this.customDEMFile = null;
+                    this.customDataSetting.demFileName = "";
+                },
+                gatherLakeZip(file){
+                    this.customLakeZip = file;
+                    this.customDataSetting.lakeZipName = file.name;
+                },
+                cancelLakeZipSelect(){
+                    this.customLakeZip = null;
+                    this.customDataSetting.lakeZipName = "";
+                },
+                runCustomData(name){
+                    this.$refs[name].validate((valid) => {
+                        if (valid) {
+                            this.$Message.success('Please wait for Data!');
+                            this.customStatus="customRunning";
+                            var formData = new FormData();
+                            formData.append('fileDEM', this.customDEMFile)
+                            formData.append('fileLake', this.customLakeZip)
+                            formData.append('threshold', this.customDataSetting.riverThreshold)
+                            axios({
+                                url: "/runCustomData",
+                                method: "post",
+                                data: formData
+                            })
+                            .then(res=>{
+                                console.log(res.data)
+                                this.customStatus = "custom4Download";
+                                this.customDataUrl=res.data;
+                            })
+                            .catch(err=>{
+                                confirm('Run Custom Data Error!');
+                                this.customStatus = "custom4Download";
+                                this.customDataUrl="";
+                            });
+                        } else {
+                            confirm('Value Can not be Empty.');
+                    }});
+                },
+                downloadCustomData(){
+                    confirm('Download Custom Data. Url: ' + this.customDataUrl);
+                    window.open(this.customDataUrl);
+                },
+                addGeoJSONToMap(GeoJSONStr, color){
+                    this.drawingLayerGroup.clearLayers();
+                    var file = JSON.parse(GeoJSONStr);
+                    var geoJsonLayer = L.geoJSON(file, {
+                        style: function(feature) {
+                            return { color: color };
+                        }
+                    }).bindPopup(function(layer) {
+                        return layer.feature.properties.description;
+                    });
+                    this.loadFeatures(geoJsonLayer);
+                    //平移至数据位置
+                    this.mapEl.fitBounds(geoJsonLayer.getBounds());
+                },
+                loadFeatures(featureCollection) {
+                    featureCollection.eachLayer(layer => {
+                        this.drawingLayerGroup.addLayer(layer);
+                    });
+                },
+                listenDraw(){
+                    var _this = this;
+                    this.mapEl.on('pm:create', e=>{
+                        _this.showDownloadGeoJSONBtn = false;
+                        _this.drawingLayerGroup.clearLayers();
+                        _this.drawingLayerGroup.addLayer(e.layer);
+                    });
+                    this.mapEl.on('pm:remove', e=>{
+                        _this.showDownloadGeoJSONBtn = false;
+                        _this.drawingLayerGroup.clearLayers();
+                    });
+                },
+            }
+        })
+    </script>
+</body>
+</html>
