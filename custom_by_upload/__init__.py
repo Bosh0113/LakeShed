@@ -159,9 +159,3 @@ if __name__ == '__main__':
         print('No found!')
     time.sleep(2)
     print('Exit!')
-
-    # workspace = '/disk1/workspace/LakeWatershed/20240720/upload'
-    # dem_tif_path = os.path.join(workspace,'jinmadem_AP_f.tif')
-    # lakes_shp_path = os.path.join(workspace,'JinmaLake_Liangshan.shp')
-    # river_threshold = 10000
-    # start_main(workspace, dem_tif_path, lakes_shp_path, river_threshold)

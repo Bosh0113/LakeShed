@@ -182,9 +182,3 @@ if __name__ == '__main__':
         print('No found!')
     time.sleep(2)
     print('Exit!')
-
-    # workspace = '/disk1/workspace/LakeWatershed/20240720/RDD'
-    # extent_geojson = workspace + '/extent.geojson'
-    # lakes_area_threshold = 10
-    # river_threshold = 10
-    # start_main(workspace, extent_geojson, lakes_area_threshold, river_threshold)
