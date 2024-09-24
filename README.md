@@ -1,4 +1,4 @@
-# A web-based tool for watershed delineation considering lakes and reservoirs
+# LakeShed: a web-based tool for watershed delineation considering lakes and reservoirs
 ## Introduce
 This is an web-based tool for watershed delineation considering lakes and reservoirs. The delineation results provide five types of spatial units: lakes, rivers, river sub-basins, lake hillslopes, and unchanneled flow paths.
 
