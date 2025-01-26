@@ -3,6 +3,7 @@ from werkzeug.utils import secure_filename
 import os
 import time
 import shutil
+import json
 import zipfile
 
 # import modelDataWork as mdw
@@ -25,6 +26,14 @@ def runResetData():
     
     print('extentGeojson_str')
     print(extentGeojson_str)
+
+    json_obj = json.loads(extentGeojson_str)
+    for polygon in json_obj['geometry']['coordinates']:
+        for coordinate in polygon:
+            # 如果经度大于180，转换到-180至180范围
+            if coordinate[0] > 180:
+                coordinate[0] -= 360
+    extentGeojson_str=json.dumps(json_obj, indent=4)
 
     run_id = str(time.time())
     comp_folder = os.path.join(os.path.abspath('.'), app.config['TASK_FOLDER'], run_id)
@@ -91,4 +100,5 @@ def runCustomData():
 
 
 if __name__ == "__main__":
-    app.run('0.0.0.0', 5002)
+    # app.run('0.0.0.0', 5002)
+    app.run('::', 5002)
